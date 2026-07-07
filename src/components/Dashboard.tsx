@@ -25,6 +25,7 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [view, setView] = useState<"grid" | "table">("grid");
+  const [showHidden, setShowHidden] = useState(false);
 
   async function patch(id: number, body: Record<string, unknown>) {
     setBusyId(id);
@@ -53,18 +54,24 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
     patch(g.id, { status: g.status === next ? null : next });
   }
 
+  function toggleHidden(g: Game) {
+    patch(g.id, { hidden: !g.hidden });
+  }
+
   function setFormatFor(g: Game, value: string) {
     patch(g.id, { physicalFormat: value, needsReview: false });
   }
 
   const stats = useMemo(() => {
+    const visible = games.filter((g) => !g.hidden);
     return {
-      total: games.length,
-      owned: games.filter((g) => g.status === "owned").length,
-      wanted: games.filter((g) => g.status === "wanted").length,
-      released: games.filter((g) => g.released).length,
-      upcoming: games.filter((g) => !g.released).length,
-      review: games.filter((g) => g.needsReview).length,
+      total: visible.length,
+      owned: visible.filter((g) => g.status === "owned").length,
+      wanted: visible.filter((g) => g.status === "wanted").length,
+      released: visible.filter((g) => g.released).length,
+      upcoming: visible.filter((g) => !g.released).length,
+      review: visible.filter((g) => g.needsReview).length,
+      hidden: games.filter((g) => g.hidden).length,
     };
   }, [games]);
 
@@ -92,7 +99,7 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
     !onlyReview;
 
   const filtered = useMemo(() => {
-    let list = [...games];
+    let list = games.filter((g) => (showHidden ? g.hidden : !g.hidden));
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((g) => g.title.toLowerCase().includes(q));
@@ -132,6 +139,7 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
     status,
     released,
     onlyReview,
+    showHidden,
     sortBy,
     sortDir,
   ]);
@@ -213,8 +221,18 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
 
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs text-zinc-500">
-            Showing {filtered.length} of {games.length}
+            Showing {filtered.length}
+            {showHidden ? " hidden" : ""} of{" "}
+            {showHidden ? stats.hidden : stats.total}
           </p>
+          {(stats.hidden > 0 || showHidden) && (
+            <button
+              onClick={() => setShowHidden((v) => !v)}
+              className="text-xs text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
+            >
+              {showHidden ? "← Back to library" : `Show hidden (${stats.hidden})`}
+            </button>
+          )}
         </div>
 
         {/* Grid / Table */}
@@ -227,6 +245,7 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
                 busy={busyId === g.id}
                 onStatus={toggleStatus}
                 onFormat={setFormatFor}
+                onHide={toggleHidden}
               />
             ))}
           </div>
@@ -252,6 +271,7 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
                     busy={busyId === g.id}
                     onStatus={toggleStatus}
                     onFormat={setFormatFor}
+                    onHide={toggleHidden}
                   />
                 ))}
               </tbody>
@@ -368,11 +388,13 @@ function GameRow({
   busy,
   onStatus,
   onFormat,
+  onHide,
 }: {
   game: Game;
   busy: boolean;
   onStatus: (g: Game, s: GameStatus) => void;
   onFormat: (g: Game, v: string) => void;
+  onHide: (g: Game) => void;
 }) {
   const score = g.opencriticScore ?? g.metacriticScore ?? g.igdbRating;
   return (
@@ -442,6 +464,14 @@ function GameRow({
           >
             Wanted
           </button>
+          <button
+            disabled={busy}
+            onClick={() => onHide(g)}
+            className="rounded px-2 py-1 text-xs border border-zinc-800 text-zinc-500 hover:text-zinc-200 hover:border-zinc-600"
+            title={g.hidden ? "Unhide" : "Hide from library"}
+          >
+            {g.hidden ? "Unhide" : "Hide"}
+          </button>
         </div>
       </td>
     </tr>
@@ -453,11 +483,13 @@ function GameCard({
   busy,
   onStatus,
   onFormat,
+  onHide,
 }: {
   game: Game;
   busy: boolean;
   onStatus: (g: Game, s: GameStatus) => void;
   onFormat: (g: Game, v: string) => void;
+  onHide: (g: Game) => void;
 }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden flex flex-col">
@@ -581,6 +613,13 @@ function GameCard({
               </option>
             ))}
           </select>
+          <button
+            disabled={busy}
+            onClick={() => onHide(g)}
+            className="rounded-md border border-zinc-800 text-zinc-500 hover:text-zinc-200 hover:border-zinc-600 text-xs py-1"
+          >
+            {g.hidden ? "Unhide" : "Hide"}
+          </button>
         </div>
       </div>
     </div>

@@ -53,6 +53,10 @@ export async function PATCH(
     update.needsReview = body.needsReview;
   }
 
+  if ("hidden" in body && typeof body.hidden === "boolean") {
+    update.hidden = body.hidden;
+  }
+
   const rows = await db
     .update(games)
     .set(update)

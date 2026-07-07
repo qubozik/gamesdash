@@ -36,6 +36,7 @@ export default async function Home() {
     iam8bitLink: r.iam8bitLink,
     description: r.description,
     status: (r.status as GameStatus) ?? null,
+    hidden: r.hidden,
     needsReview: r.needsReview,
     source: r.source,
   }));

@@ -50,6 +50,7 @@ export const games = pgTable("games", {
 
   // Personal tracking (original goal)
   status: text("status"), // "owned" | "wanted" | null
+  hidden: boolean("hidden").default(false).notNull(),
 
   // Sync bookkeeping
   needsReview: boolean("needs_review").default(false).notNull(),

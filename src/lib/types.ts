@@ -31,6 +31,7 @@ export interface Game {
   iam8bitLink: string | null;
   description: string | null;
   status: GameStatus;
+  hidden: boolean;
   needsReview: boolean;
   source: string;
 }
