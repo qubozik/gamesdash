@@ -67,6 +67,29 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
     };
   }, [games]);
 
+  function selectStat(kind: "total" | "owned" | "wanted" | "released" | "upcoming" | "review") {
+    // reset everything, then apply the chosen filter
+    setSearch("");
+    setPlatform("All");
+    setFormat("All");
+    setStatus("All");
+    setReleased("All");
+    setOnlyReview(false);
+    if (kind === "owned") setStatus("owned");
+    else if (kind === "wanted") setStatus("wanted");
+    else if (kind === "released") setReleased("Released");
+    else if (kind === "upcoming") setReleased("Upcoming");
+    else if (kind === "review") setOnlyReview(true);
+  }
+
+  const noFilters =
+    !search &&
+    platform === "All" &&
+    format === "All" &&
+    status === "All" &&
+    released === "All" &&
+    !onlyReview;
+
   const filtered = useMemo(() => {
     let list = [...games];
     if (search.trim()) {
@@ -131,15 +154,17 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
       <main className="mx-auto max-w-7xl px-4 py-6">
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-          <Stat label="Total" value={stats.total} />
-          <Stat label="Owned" value={stats.owned} accent="text-emerald-400" />
-          <Stat label="Wanted" value={stats.wanted} accent="text-pink-400" />
-          <Stat label="Released" value={stats.released} />
-          <Stat label="Upcoming" value={stats.upcoming} />
+          <Stat label="Total" value={stats.total} onClick={() => selectStat("total")} active={noFilters} />
+          <Stat label="Owned" value={stats.owned} accent="text-emerald-400" onClick={() => selectStat("owned")} active={status === "owned"} />
+          <Stat label="Wanted" value={stats.wanted} accent="text-pink-400" onClick={() => selectStat("wanted")} active={status === "wanted"} />
+          <Stat label="Released" value={stats.released} onClick={() => selectStat("released")} active={released === "Released"} />
+          <Stat label="Upcoming" value={stats.upcoming} onClick={() => selectStat("upcoming")} active={released === "Upcoming"} />
           <Stat
             label="Needs review"
             value={stats.review}
             accent="text-amber-400"
+            onClick={() => selectStat("review")}
+            active={onlyReview}
           />
         </div>
 
@@ -203,16 +228,29 @@ function Stat({
   label,
   value,
   accent = "text-zinc-100",
+  onClick,
+  active = false,
 }: {
   label: string;
   value: number;
   accent?: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`text-left rounded-lg border px-4 py-3 transition-colors ${
+        active
+          ? "border-zinc-500 bg-zinc-800/70 ring-1 ring-zinc-500"
+          : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-600 hover:bg-zinc-800/50"
+      }`}
+    >
       <div className={`text-2xl font-bold ${accent}`}>{value}</div>
       <div className="text-xs text-zinc-400">{label}</div>
-    </div>
+    </button>
   );
 }
 
