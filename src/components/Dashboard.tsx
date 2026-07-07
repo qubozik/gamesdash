@@ -368,11 +368,24 @@ function GameCard({
       <div className="p-3 flex flex-col gap-2 flex-1">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-semibold text-sm leading-tight">{g.title}</h3>
-          {g.opencriticScore != null && (
-            <span className="shrink-0 text-xs font-bold text-zinc-300">
-              {g.opencriticScore}
-            </span>
-          )}
+          <div className="shrink-0 flex flex-col items-end gap-0.5">
+            {g.metacriticScore != null && (
+              <span
+                title="Metacritic"
+                className="text-[10px] font-bold rounded px-1.5 py-0.5 bg-zinc-800 text-zinc-200"
+              >
+                MC {g.metacriticScore}
+              </span>
+            )}
+            {g.opencriticScore != null && (
+              <span
+                title="OpenCritic"
+                className="text-[10px] font-bold rounded px-1.5 py-0.5 bg-zinc-800 text-zinc-200"
+              >
+                OC {g.opencriticScore}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-1">
