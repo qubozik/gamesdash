@@ -153,6 +153,22 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
               </p>
             </div>
           </div>
+          <div className="flex rounded-md border border-zinc-800 overflow-hidden">
+            <button
+              onClick={() => setView("grid")}
+              className={`px-3 py-1.5 text-sm ${view === "grid" ? "bg-zinc-700 text-white" : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"}`}
+              title="Grid view"
+            >
+              Grid
+            </button>
+            <button
+              onClick={() => setView("table")}
+              className={`px-3 py-1.5 text-sm ${view === "table" ? "bg-zinc-700 text-white" : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"}`}
+              title="Table view"
+            >
+              Table
+            </button>
+          </div>
         </div>
       </header>
 
@@ -208,22 +224,6 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
           <p className="text-xs text-zinc-500">
             Showing {filtered.length} of {games.length}
           </p>
-          <div className="flex rounded-md border border-zinc-800 overflow-hidden">
-            <button
-              onClick={() => setView("grid")}
-              className={`px-3 py-1.5 text-sm ${view === "grid" ? "bg-zinc-700 text-white" : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"}`}
-              title="Grid view"
-            >
-              Grid
-            </button>
-            <button
-              onClick={() => setView("table")}
-              className={`px-3 py-1.5 text-sm ${view === "table" ? "bg-zinc-700 text-white" : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"}`}
-              title="Table view"
-            >
-              Table
-            </button>
-          </div>
         </div>
 
         {/* Grid / Table */}
