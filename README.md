@@ -11,7 +11,7 @@ discovers new releases from IGDB.
 - Owned / Wanted tracking per game.
 - Physical format tracking (full cart vs. key card vs. code-in-box).
 - Search, filter (platform, format, status, availability) and sort.
-- Weekly sync (Sundays 05:00 UTC) that adds newly announced Switch / Switch 2
+- Weekly sync (Sundays 05:00 America/New_York) that adds newly announced Switch / Switch 2
   games from IGDB, flagged "needs review" for you to set the physical format.
 
 ## Tech
@@ -46,4 +46,5 @@ npm run dev
 3. Add env vars: `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`, `CRON_SECRET`.
 4. Push schema + seed once (from a machine with `POSTGRES_URL` set):
    `npm run db:push && npm run db:seed`.
-5. The cron in `vercel.json` runs `/api/sync` every Sunday at 05:00 UTC.
+5. The cron in `vercel.json` runs `/api/sync` every Sunday at 05:00 Eastern
+   (`0 10 * * 0` UTC; 6:00 AM during daylight saving).
