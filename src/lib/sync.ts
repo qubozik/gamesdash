@@ -59,16 +59,14 @@ export async function runSync(): Promise<SyncResult> {
 
   let added = 0;
   const addedTitles: string[] = [];
-  for (const row of toInsert) {
-    const res = await db
+  if (toInsert.length) {
+    const inserted = await db
       .insert(games)
-      .values(row)
+      .values(toInsert)
       .onConflictDoNothing()
       .returning({ title: games.title });
-    if (res.length) {
-      added++;
-      addedTitles.push(res[0].title);
-    }
+    added = inserted.length;
+    addedTitles.push(...inserted.map((r) => r.title));
   }
 
   return {

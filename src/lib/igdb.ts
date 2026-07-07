@@ -9,6 +9,12 @@ const IGDB_BASE = "https://api.igdb.com/v4";
 // Nintendo Switch platform id is a stable, well-known IGDB id.
 const SWITCH_PLATFORM_ID = 130;
 
+// Only import games with some traction, to avoid flooding the tracker with
+// obscure shovelware. `hypes` = pre-release wishlist interest; total_rating_count
+// = number of critic/user ratings. Tunable via env vars.
+const MIN_HYPES = Number(process.env.SYNC_MIN_HYPES ?? 5);
+const MIN_RATINGS = Number(process.env.SYNC_MIN_RATINGS ?? 8);
+
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 function creds() {
@@ -121,7 +127,8 @@ export async function fetchRecentSwitchGames(opts?: {
      where platforms = ${platformList}
        & first_release_date >= ${from}
        & first_release_date <= ${to}
-       & category = 0;
+       & game_type = 0
+       & (hypes >= ${MIN_HYPES} | total_rating_count >= ${MIN_RATINGS});
      sort first_release_date desc;
      limit 500;`,
   );
