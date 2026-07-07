@@ -26,6 +26,8 @@ export const games = pgTable("games", {
   genre: jsonb("genre").$type<string[]>().default([]).notNull(),
   priceUsd: doublePrecision("price_usd"),
   physicalFormat: text("physical_format").default("Unknown").notNull(),
+  // How the physical format was determined: 'seed' | 'nintendo' | 'brave' | 'manual' | null
+  formatSource: text("format_source"),
   metacriticScore: integer("metacritic_score"),
   opencriticScore: integer("opencritic_score"),
   coverImageUrl: text("cover_image_url"),

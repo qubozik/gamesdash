@@ -22,6 +22,7 @@ export default async function Home() {
     genre: r.genre ?? [],
     priceUsd: r.priceUsd,
     physicalFormat: r.physicalFormat,
+    formatSource: r.formatSource,
     metacriticScore: r.metacriticScore,
     opencriticScore: r.opencriticScore,
     coverImageUrl: r.coverImageUrl,

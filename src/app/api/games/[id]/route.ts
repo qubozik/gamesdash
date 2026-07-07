@@ -40,6 +40,7 @@ export async function PATCH(
     const f = body.physicalFormat;
     if (typeof f === "string" && FORMATS.has(f)) {
       update.physicalFormat = f;
+      update.formatSource = "manual";
     } else {
       return NextResponse.json(
         { error: "Invalid physicalFormat" },

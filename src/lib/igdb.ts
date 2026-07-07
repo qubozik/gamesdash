@@ -84,6 +84,7 @@ export type IgdbGame = {
   genres?: { name: string }[];
   cover?: { image_id: string };
   platforms?: number[];
+  involved_companies?: { company?: { name?: string }; publisher?: boolean }[];
 };
 
 function coverUrl(imageId?: string): string | null {
@@ -108,6 +109,7 @@ export async function fetchRecentSwitchGames(opts?: {
     genre: string[];
     coverImageUrl: string | null;
     description: string | null;
+    publisher: string | null;
   }[]
 > {
   const sinceDays = opts?.sinceDays ?? 120;
@@ -123,7 +125,7 @@ export async function fetchRecentSwitchGames(opts?: {
 
   const rows = await igdb<IgdbGame[]>(
     "games",
-    `fields id,name,first_release_date,summary,genres.name,cover.image_id,platforms;
+    `fields id,name,first_release_date,summary,genres.name,cover.image_id,platforms,involved_companies.company.name,involved_companies.publisher;
      where platforms = ${platformList}
        & first_release_date >= ${from}
        & first_release_date <= ${to}
@@ -142,6 +144,10 @@ export async function fetchRecentSwitchGames(opts?: {
     const releaseDate = releaseUnix
       ? new Date(releaseUnix * 1000).toISOString().slice(0, 10)
       : null;
+    const publisher =
+      r.involved_companies?.find((c) => c.publisher)?.company?.name ??
+      r.involved_companies?.[0]?.company?.name ??
+      null;
     return {
       igdbId: r.id,
       title: r.name,
@@ -151,6 +157,7 @@ export async function fetchRecentSwitchGames(opts?: {
       genre: (r.genres ?? []).map((g) => g.name),
       coverImageUrl: coverUrl(r.cover?.image_id),
       description: r.summary ?? null,
+      publisher,
     };
   });
 }

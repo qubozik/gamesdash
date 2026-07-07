@@ -17,6 +17,7 @@ export interface Game {
   genre: string[];
   priceUsd: number | null;
   physicalFormat: string;
+  formatSource: string | null;
   metacriticScore: number | null;
   opencriticScore: number | null;
   coverImageUrl: string | null;

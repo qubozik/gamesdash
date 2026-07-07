@@ -65,6 +65,7 @@ async function main() {
     genre: g.genre ?? [],
     priceUsd: g.price_usd,
     physicalFormat: g.physical_format || "Unknown",
+    formatSource: "seed",
     metacriticScore: g.metacritic_score,
     opencriticScore: g.opencritic_score,
     coverImageUrl: g.cover_image_url,
