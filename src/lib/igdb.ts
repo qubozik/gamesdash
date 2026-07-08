@@ -95,6 +95,11 @@ function coverUrl(imageId?: string): string | null {
   return `https://images.igdb.com/igdb/image/upload/t_cover_big/${imageId}.jpg`;
 }
 
+function coverThumb(imageId?: string): string | null {
+  if (!imageId) return null;
+  return `https://images.igdb.com/igdb/image/upload/t_cover_small/${imageId}.jpg`;
+}
+
 export type SwitchGame = {
   igdbId: number;
   title: string;
@@ -184,6 +189,57 @@ export async function fetchGameBySlug(slug: string): Promise<SwitchGame | null> 
     `${GAME_FIELDS} where slug = "${clean}"; limit 1;`,
   );
   return rows.length ? mapGame(rows[0], s2) : null;
+}
+
+/** Fetch a single game by its IGDB numeric id. */
+export async function fetchGameById(id: number): Promise<SwitchGame | null> {
+  const s2 = await getSwitch2PlatformId();
+  const rows = await igdb<IgdbGame[]>(
+    "games",
+    `${GAME_FIELDS} where id = ${id}; limit 1;`,
+  );
+  return rows.length ? mapGame(rows[0], s2) : null;
+}
+
+export type IgdbSearchResult = {
+  igdbId: number;
+  name: string;
+  year: number | null;
+  coverUrl: string | null;
+  platform: string;
+  igdbUrl: string | null;
+};
+
+/** Search IGDB for Switch / Switch 2 games matching a query (for the Add picker). */
+export async function searchGames(query: string): Promise<IgdbSearchResult[]> {
+  const q = query.replace(/"/g, "").trim();
+  if (q.length < 2) return [];
+  const s2 = await getSwitch2PlatformId();
+  const platformList = s2
+    ? `(${SWITCH_PLATFORM_ID},${s2})`
+    : `(${SWITCH_PLATFORM_ID})`;
+  const rows = await igdb<IgdbGame[]>(
+    "games",
+    `search "${q}";
+     fields id,name,url,first_release_date,cover.image_id,platforms;
+     where platforms = ${platformList} & game_type = (0,3,4,8,9,10,11);
+     limit 20;`,
+  );
+  return rows.map((r) => {
+    const hasS2 = s2 ? r.platforms?.includes(s2) : false;
+    const hasS1 = r.platforms?.includes(SWITCH_PLATFORM_ID);
+    const platform = hasS1 && hasS2 ? "Both" : hasS2 ? "Switch 2" : "Switch";
+    return {
+      igdbId: r.id,
+      name: r.name,
+      year: r.first_release_date
+        ? new Date(r.first_release_date * 1000).getUTCFullYear()
+        : null,
+      coverUrl: coverThumb(r.cover?.image_id),
+      platform,
+      igdbUrl: r.url ?? null,
+    };
+  });
 }
 
 /** Extract an IGDB slug from a full URL or a bare slug. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Game, GameStatus } from "@/lib/types";
 import { PHYSICAL_FORMATS } from "@/lib/types";
 
@@ -12,6 +12,15 @@ const FORMAT_STYLES: Record<string, string> = {
 };
 
 type SortKey = "release" | "title" | "score";
+
+type IgdbResult = {
+  igdbId: number;
+  name: string;
+  year: number | null;
+  coverUrl: string | null;
+  platform: string;
+  igdbUrl: string | null;
+};
 
 export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
   const [games, setGames] = useState<Game[]>(initialGames);
@@ -27,8 +36,11 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
   const [view, setView] = useState<"grid" | "table">("grid");
   const [showHidden, setShowHidden] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [addUrl, setAddUrl] = useState("");
-  const [addBusy, setAddBusy] = useState(false);
+  const [addQuery, setAddQuery] = useState("");
+  const [addResults, setAddResults] = useState<IgdbResult[]>([]);
+  const [addSearching, setAddSearching] = useState(false);
+  const [addingId, setAddingId] = useState<number | null>(null);
+  const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
   const [addError, setAddError] = useState<string | null>(null);
 
   async function patch(id: number, body: Record<string, unknown>) {
@@ -62,26 +74,57 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
     patch(g.id, { hidden: !g.hidden });
   }
 
-  async function addGame() {
-    setAddBusy(true);
+  async function addGame(
+    payload: { igdbId?: number; url?: string },
+    resultId?: number,
+  ) {
+    if (resultId != null) setAddingId(resultId);
     setAddError(null);
     try {
       const res = await fetch("/api/games/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: addUrl }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to add game");
       setGames((prev) => [data.game as Game, ...prev]);
-      setAddUrl("");
-      setAddOpen(false);
+      if (resultId != null) {
+        setAddedIds((prev) => new Set(prev).add(resultId));
+      } else {
+        setAddQuery("");
+        setAddOpen(false);
+      }
     } catch (e) {
       setAddError(e instanceof Error ? e.message : String(e));
     } finally {
-      setAddBusy(false);
+      setAddingId(null);
     }
   }
+
+  // Debounced IGDB search while the Add modal is open.
+  useEffect(() => {
+    if (!addOpen) return;
+    const q = addQuery.trim();
+    if (q.length < 2 || /igdb\.com\/games\//i.test(q)) {
+      setAddResults([]);
+      setAddSearching(false);
+      return;
+    }
+    setAddSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/igdb/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        setAddResults(res.ok ? (data.results ?? []) : []);
+      } catch {
+        setAddResults([]);
+      } finally {
+        setAddSearching(false);
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [addQuery, addOpen]);
 
   function setFormatFor(g: Game, value: string) {
     patch(g.id, { physicalFormat: value, needsReview: false });
@@ -189,6 +232,9 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
           <button
             onClick={() => {
               setAddError(null);
+              setAddQuery("");
+              setAddResults([]);
+              setAddedIds(new Set());
               setAddOpen(true);
             }}
             className="rounded-md bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-3 py-2"
@@ -320,54 +366,101 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
 
       {addOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 grid place-items-center p-4"
-          onClick={() => !addBusy && setAddOpen(false)}
+          className="fixed inset-0 z-50 bg-black/60 grid place-items-start justify-center p-4 pt-16 overflow-y-auto"
+          onClick={() => setAddOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-900 p-5"
+            className="w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-900 p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold">Add a game</h2>
-            <p className="text-xs text-zinc-400 mt-1 mb-3">
-              Paste an IGDB game link. Find the game on{" "}
-              <a
-                href="https://www.igdb.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">Add a game</h2>
+              <button
+                onClick={() => setAddOpen(false)}
+                className="text-zinc-400 hover:text-zinc-200"
+                aria-label="Close"
               >
-                igdb.com
-              </a>{" "}
-              and copy its URL (e.g. https://www.igdb.com/games/the-legend-of-zelda-breath-of-the-wild).
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-zinc-400 mt-1 mb-3">
+              Search IGDB and click Add — or paste an IGDB link.
             </p>
             <input
               autoFocus
-              value={addUrl}
-              onChange={(e) => setAddUrl(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && addUrl.trim() && !addBusy) addGame();
-              }}
-              placeholder="https://www.igdb.com/games/..."
+              value={addQuery}
+              onChange={(e) => setAddQuery(e.target.value)}
+              placeholder="Search games... (e.g. Breath of the Wild)"
               className="w-full rounded-md bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm outline-none focus:border-zinc-500"
             />
-            {addError && (
-              <p className="text-xs text-red-400 mt-2">{addError}</p>
-            )}
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setAddOpen(false)}
-                disabled={addBusy}
-                className="rounded-md border border-zinc-700 text-zinc-300 hover:border-zinc-500 text-sm px-3 py-2"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={addGame}
-                disabled={addBusy || !addUrl.trim()}
-                className="rounded-md bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-semibold px-3 py-2"
-              >
-                {addBusy ? "Adding\u2026" : "Add game"}
-              </button>
+            {addError && <p className="text-xs text-red-400 mt-2">{addError}</p>}
+
+            <div className="mt-3 max-h-[50vh] overflow-y-auto">
+              {/igdb\.com\/games\//i.test(addQuery) ? (
+                <button
+                  onClick={() => addGame({ url: addQuery })}
+                  disabled={addingId === -1}
+                  className="w-full rounded-md bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-3 py-2"
+                >
+                  Add from this link
+                </button>
+              ) : addSearching ? (
+                <p className="text-sm text-zinc-500 py-4 text-center">Searching…</p>
+              ) : addQuery.trim().length < 2 ? (
+                <p className="text-sm text-zinc-600 py-4 text-center">
+                  Type at least 2 characters to search.
+                </p>
+              ) : addResults.length === 0 ? (
+                <p className="text-sm text-zinc-500 py-4 text-center">
+                  No Switch games found.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {addResults.map((r) => {
+                    const added = addedIds.has(r.igdbId);
+                    return (
+                      <li
+                        key={r.igdbId}
+                        className="flex items-center gap-3 rounded-md p-2 hover:bg-zinc-800/50"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {r.coverUrl ? (
+                          <img
+                            src={r.coverUrl}
+                            alt=""
+                            className="h-12 w-9 object-cover rounded shrink-0"
+                          />
+                        ) : (
+                          <div className="h-12 w-9 rounded bg-zinc-800 shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">
+                            {r.name}
+                          </div>
+                          <div className="text-xs text-zinc-500">
+                            {`${r.year ?? "TBA"} · ${r.platform}`}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => addGame({ igdbId: r.igdbId }, r.igdbId)}
+                          disabled={added || addingId === r.igdbId}
+                          className={`shrink-0 rounded-md text-xs font-semibold px-3 py-1.5 border ${
+                            added
+                              ? "border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
+                              : "bg-red-600 hover:bg-red-500 text-white border-red-600 disabled:opacity-50"
+                          }`}
+                        >
+                          {added
+                            ? "Added ✓"
+                            : addingId === r.igdbId
+                              ? "Adding…"
+                              : "Add"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           </div>
         </div>
