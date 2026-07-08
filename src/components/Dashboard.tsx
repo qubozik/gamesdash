@@ -26,6 +26,10 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [view, setView] = useState<"grid" | "table">("grid");
   const [showHidden, setShowHidden] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addUrl, setAddUrl] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   async function patch(id: number, body: Record<string, unknown>) {
     setBusyId(id);
@@ -56,6 +60,27 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
 
   function toggleHidden(g: Game) {
     patch(g.id, { hidden: !g.hidden });
+  }
+
+  async function addGame() {
+    setAddBusy(true);
+    setAddError(null);
+    try {
+      const res = await fetch("/api/games/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: addUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add game");
+      setGames((prev) => [data.game as Game, ...prev]);
+      setAddUrl("");
+      setAddOpen(false);
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAddBusy(false);
+    }
   }
 
   function setFormatFor(g: Game, value: string) {
@@ -161,6 +186,15 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
               </p>
             </div>
           </div>
+          <button
+            onClick={() => {
+              setAddError(null);
+              setAddOpen(true);
+            }}
+            className="rounded-md bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-3 py-2"
+          >
+            + Add game
+          </button>
         </div>
       </header>
 
@@ -283,6 +317,61 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
           <div className="text-center text-zinc-500 py-20">No games found.</div>
         )}
       </main>
+
+      {addOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 grid place-items-center p-4"
+          onClick={() => !addBusy && setAddOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-900 p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold">Add a game</h2>
+            <p className="text-xs text-zinc-400 mt-1 mb-3">
+              Paste an IGDB game link. Find the game on{" "}
+              <a
+                href="https://www.igdb.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                igdb.com
+              </a>{" "}
+              and copy its URL (e.g. https://www.igdb.com/games/the-legend-of-zelda-breath-of-the-wild).
+            </p>
+            <input
+              autoFocus
+              value={addUrl}
+              onChange={(e) => setAddUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && addUrl.trim() && !addBusy) addGame();
+              }}
+              placeholder="https://www.igdb.com/games/..."
+              className="w-full rounded-md bg-zinc-950 border border-zinc-700 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+            />
+            {addError && (
+              <p className="text-xs text-red-400 mt-2">{addError}</p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setAddOpen(false)}
+                disabled={addBusy}
+                className="rounded-md border border-zinc-700 text-zinc-300 hover:border-zinc-500 text-sm px-3 py-2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addGame}
+                disabled={addBusy || !addUrl.trim()}
+                className="rounded-md bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-semibold px-3 py-2"
+              >
+                {addBusy ? "Adding\u2026" : "Add game"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

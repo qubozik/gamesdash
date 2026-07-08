@@ -95,6 +95,51 @@ function coverUrl(imageId?: string): string | null {
   return `https://images.igdb.com/igdb/image/upload/t_cover_big/${imageId}.jpg`;
 }
 
+export type SwitchGame = {
+  igdbId: number;
+  title: string;
+  releaseDate: string | null;
+  released: boolean;
+  platform: string;
+  genre: string[];
+  coverImageUrl: string | null;
+  igdbUrl: string | null;
+  description: string | null;
+  publisher: string | null;
+  igdbRating: number | null;
+};
+
+const GAME_FIELDS =
+  "fields id,name,slug,first_release_date,summary,genres.name,cover.image_id,url,platforms,aggregated_rating,aggregated_rating_count,involved_companies.company.name,involved_companies.publisher;";
+
+function mapGame(r: IgdbGame, s2: number | null): SwitchGame {
+  const hasS2 = s2 ? r.platforms?.includes(s2) : false;
+  const hasS1 = r.platforms?.includes(SWITCH_PLATFORM_ID);
+  const platform = hasS1 && hasS2 ? "Both" : hasS2 ? "Switch 2" : "Switch";
+  const releaseUnix = r.first_release_date;
+  const releaseDate = releaseUnix
+    ? new Date(releaseUnix * 1000).toISOString().slice(0, 10)
+    : null;
+  const publisher =
+    r.involved_companies?.find((c) => c.publisher)?.company?.name ??
+    r.involved_companies?.[0]?.company?.name ??
+    null;
+  return {
+    igdbId: r.id,
+    title: r.name,
+    releaseDate,
+    released: releaseUnix ? releaseUnix * 1000 <= Date.now() : false,
+    platform,
+    genre: (r.genres ?? []).map((g) => g.name),
+    coverImageUrl: coverUrl(r.cover?.image_id),
+    igdbUrl: r.url ?? null,
+    description: r.summary ?? null,
+    publisher,
+    igdbRating:
+      r.aggregated_rating != null ? Math.round(r.aggregated_rating) : null,
+  };
+}
+
 /**
  * Fetch Switch / Switch 2 games released or releasing within the given window.
  * `sinceDays` looks back, `untilDays` looks forward (to catch upcoming titles).
@@ -102,21 +147,7 @@ function coverUrl(imageId?: string): string | null {
 export async function fetchRecentSwitchGames(opts?: {
   sinceDays?: number;
   untilDays?: number;
-}): Promise<
-  {
-    igdbId: number;
-    title: string;
-    releaseDate: string | null;
-    released: boolean;
-    platform: string;
-    genre: string[];
-    coverImageUrl: string | null;
-    igdbUrl: string | null;
-    description: string | null;
-    publisher: string | null;
-    igdbRating: number | null;
-  }[]
-> {
+}): Promise<SwitchGame[]> {
   const sinceDays = opts?.sinceDays ?? 120;
   const untilDays = opts?.untilDays ?? 400;
   const now = Math.floor(Date.now() / 1000);
@@ -130,7 +161,7 @@ export async function fetchRecentSwitchGames(opts?: {
 
   const rows = await igdb<IgdbGame[]>(
     "games",
-    `fields id,name,first_release_date,summary,genres.name,cover.image_id,url,platforms,aggregated_rating,aggregated_rating_count,involved_companies.company.name,involved_companies.publisher;
+    `${GAME_FIELDS}
      where platforms = ${platformList}
        & first_release_date >= ${from}
        & first_release_date <= ${to}
@@ -140,32 +171,28 @@ export async function fetchRecentSwitchGames(opts?: {
      limit 500;`,
   );
 
-  return rows.map((r) => {
-    const hasS2 = s2 ? r.platforms?.includes(s2) : false;
-    const hasS1 = r.platforms?.includes(SWITCH_PLATFORM_ID);
-    const platform =
-      hasS1 && hasS2 ? "Both" : hasS2 ? "Switch 2" : "Switch";
-    const releaseUnix = r.first_release_date;
-    const releaseDate = releaseUnix
-      ? new Date(releaseUnix * 1000).toISOString().slice(0, 10)
-      : null;
-    const publisher =
-      r.involved_companies?.find((c) => c.publisher)?.company?.name ??
-      r.involved_companies?.[0]?.company?.name ??
-      null;
-    return {
-      igdbId: r.id,
-      title: r.name,
-      releaseDate,
-      released: releaseUnix ? releaseUnix * 1000 <= Date.now() : false,
-      platform,
-      genre: (r.genres ?? []).map((g) => g.name),
-      coverImageUrl: coverUrl(r.cover?.image_id),
-      igdbUrl: r.url ?? null,
-      description: r.summary ?? null,
-      publisher,
-      igdbRating:
-        r.aggregated_rating != null ? Math.round(r.aggregated_rating) : null,
-    };
-  });
+  return rows.map((r) => mapGame(r, s2));
+}
+
+/** Fetch a single game by its IGDB slug (from an igdb.com/games/<slug> URL). */
+export async function fetchGameBySlug(slug: string): Promise<SwitchGame | null> {
+  const clean = slug.replace(/"/g, "").trim().toLowerCase();
+  if (!clean) return null;
+  const s2 = await getSwitch2PlatformId();
+  const rows = await igdb<IgdbGame[]>(
+    "games",
+    `${GAME_FIELDS} where slug = "${clean}"; limit 1;`,
+  );
+  return rows.length ? mapGame(rows[0], s2) : null;
+}
+
+/** Extract an IGDB slug from a full URL or a bare slug. */
+export function parseIgdbSlug(input: string): string | null {
+  const t = input.trim();
+  if (!t) return null;
+  const m = t.match(/igdb\.com\/games\/([^/?#]+)/i);
+  if (m) return m[1].toLowerCase();
+  // bare slug (letters, numbers, hyphens)
+  if (/^[a-z0-9-]+$/i.test(t)) return t.toLowerCase();
+  return null;
 }
