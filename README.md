@@ -25,6 +25,7 @@ up‑to‑date automatically every week.
   that act as one‑click filters.
 - **Grid and Table views.**
 - **Hide** games you'll never want (excluded by default, with a "Show hidden" toggle).
+- **Manually add any game** (including Switch 1 titles) by pasting its IGDB link.
 - **Password protection** for the whole site and API (single shared password).
 
 ---
@@ -67,6 +68,7 @@ Key columns:
 |---|---|
 | `title` | unique |
 | `igdb_id` | linked IGDB id (nullable) |
+| `igdb_url` | link to the game's IGDB page (cover art links here) |
 | `release_date`, `released` | refreshed weekly |
 | `platform` | `Switch 2` · `Switch` · `Both` |
 | `genre` | jsonb array |
@@ -87,6 +89,7 @@ Key columns:
 |---|---|---|
 | `/api/games` | GET | List all games |
 | `/api/games/:id` | PATCH | Update `status`, `physicalFormat`, `needsReview`, or `hidden` |
+| `/api/games/add` | POST | Add a game by IGDB link/slug (`{ "url": "https://www.igdb.com/games/<slug>" }`); runs format detection |
 | `/api/sync` | GET/POST | Run the weekly sync (guarded by `CRON_SECRET`) |
 
 ---
@@ -143,6 +146,15 @@ npm run dev
    (`0 10 * * 0` UTC).
 
 ---
+
+## Adding games
+
+- **Automatically:** the weekly sync discovers new **Switch 2 / cross-gen** releases
+  above a popularity threshold.
+- **Manually:** click **"+ Add game"**, paste a game's **IGDB link** (from
+  [igdb.com](https://www.igdb.com)), and it's fetched and added with cover art,
+  score, release info, and best-effort format detection. This is how you add
+  specific **Switch 1** titles without importing the whole Switch 1 catalog.
 
 ## Notes & caveats
 
