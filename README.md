@@ -7,7 +7,7 @@ whole **Steam library + wishlist**, and plan what to play next with a **backlog
 completion planner**. New releases, review scores, and cover art are pulled in and
 kept up‑to‑date automatically every week.
 
-> Live: `https://switch-dashboard-iota.vercel.app` (password protected)
+> Live: `https://gamesdash.vercel.app` (password protected)
 
 ---
 
