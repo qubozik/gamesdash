@@ -154,8 +154,12 @@ async function classifyWithLLM(
     "Use high only when snippets explicitly state the format for THIS game.";
   const user = `Game: ${title}\n\nSearch results:\n${snippets}`;
 
-  try {
-    const res = await fetch(`${base}/chat/completions`, {
+  const messages = [
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ];
+  const post = (jsonMode: boolean) =>
+    fetch(`${base}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -164,13 +168,17 @@ async function classifyWithLLM(
       body: JSON.stringify({
         model,
         temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
+        messages,
+        ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
       }),
     });
+
+  try {
+    // Prefer JSON-object mode; some models (e.g. gpt-5-nano) reject
+    // response_format, so retry once without it. The prompt still enforces
+    // strict JSON and the parser below tolerates prose/code fences.
+    let res = await post(true);
+    if (!res.ok) res = await post(false);
     if (!res.ok) return null;
     const data = (await res.json()) as {
       choices?: { message?: { content?: string } }[];
