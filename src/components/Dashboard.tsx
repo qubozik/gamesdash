@@ -11,7 +11,7 @@ const FORMAT_STYLES: Record<string, string> = {
   Unknown: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30",
 };
 
-type SortKey = "release" | "title" | "score";
+type SortKey = "release" | "title" | "score" | "discount";
 type Tab = "All" | "Switch" | "Switch 2" | "Steam" | "Planner";
 const TABS: Tab[] = ["All", "Switch", "Switch 2", "Steam", "Planner"];
 type AddSource = "nintendo" | "steam";
@@ -32,6 +32,10 @@ function matchesTab(g: Game, tab: Tab): boolean {
   if (tab === "Switch 2")
     return g.library === "nintendo" && (g.platform === "Switch 2" || g.platform === "Both");
   return true;
+}
+
+function isOnSale(g: Game): boolean {
+  return g.library === "steam" && (g.steamDiscountPct ?? 0) > 0;
 }
 
 function playtimeLabel(mins: number | null): string | null {
@@ -61,6 +65,7 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
   const [status, setStatus] = useState("All");
   const [released, setReleased] = useState("All");
   const [onlyReview, setOnlyReview] = useState(false);
+  const [onlyOnSale, setOnlyOnSale] = useState(false);
   const [sortBy, setSortBy] = useState<SortKey>("release");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -279,12 +284,20 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
       released: visible.filter((g) => g.released).length,
       upcoming: visible.filter((g) => !g.released).length,
       review: visible.filter((g) => g.needsReview).length,
+      onSale: visible.filter(isOnSale).length,
       hidden: tabbed.filter((g) => g.hidden).length,
     };
   }, [tabbed]);
 
   function selectStat(
-    kind: "total" | "owned" | "wanted" | "released" | "upcoming" | "review",
+    kind:
+      | "total"
+      | "owned"
+      | "wanted"
+      | "released"
+      | "upcoming"
+      | "review"
+      | "sale",
   ) {
     setSearch("");
     setPlatform("All");
@@ -292,11 +305,17 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
     setStatus("All");
     setReleased("All");
     setOnlyReview(false);
+    setOnlyOnSale(false);
     if (kind === "owned") setStatus("owned");
     else if (kind === "wanted") setStatus("wanted");
     else if (kind === "released") setReleased("Released");
     else if (kind === "upcoming") setReleased("Upcoming");
     else if (kind === "review") setOnlyReview(true);
+    else if (kind === "sale") {
+      setOnlyOnSale(true);
+      setSortBy("discount");
+      setSortDir("desc");
+    }
   }
 
   const noFilters =
@@ -305,7 +324,8 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
     format === "All" &&
     status === "All" &&
     released === "All" &&
-    !onlyReview;
+    !onlyReview &&
+    !onlyOnSale;
 
   const filtered = useMemo(() => {
     let list = tabbed.filter((g) => (showHidden ? g.hidden : !g.hidden));
@@ -324,6 +344,7 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
       list = list.filter((g) => g.released === want);
     }
     if (onlyReview) list = list.filter((g) => g.needsReview);
+    if (onlyOnSale) list = list.filter(isOnSale);
 
     const dir = sortDir === "asc" ? 1 : -1;
     list.sort((a, b) => {
@@ -334,12 +355,14 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
           ((a.opencriticScore ?? a.metacriticScore ?? a.igdbRating ?? -1) -
             (b.opencriticScore ?? b.metacriticScore ?? b.igdbRating ?? -1))
         );
+      if (sortBy === "discount")
+        return dir * ((a.steamDiscountPct ?? -1) - (b.steamDiscountPct ?? -1));
       const ad = a.releaseDate ?? "";
       const bd = b.releaseDate ?? "";
       return dir * ad.localeCompare(bd);
     });
     return list;
-  }, [tabbed, search, platform, format, status, released, onlyReview, showHidden, sortBy, sortDir]);
+  }, [tabbed, search, platform, format, status, released, onlyReview, onlyOnSale, showHidden, sortBy, sortDir]);
 
   // Backlog (across all libraries, ignores the active tab)
   const backlogActive = useMemo(
@@ -422,13 +445,14 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
         ) : (
           <>
             {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-6">
               <Stat label="Total" value={stats.total} onClick={() => selectStat("total")} active={noFilters} />
               <Stat label="Owned" value={stats.owned} accent="text-emerald-400" onClick={() => selectStat("owned")} active={status === "owned"} />
               <Stat label="Wanted" value={stats.wanted} accent="text-pink-400" onClick={() => selectStat("wanted")} active={status === "wanted"} />
               <Stat label="Released" value={stats.released} onClick={() => selectStat("released")} active={released === "Released"} />
               <Stat label="Upcoming" value={stats.upcoming} onClick={() => selectStat("upcoming")} active={released === "Upcoming"} />
               <Stat label="Needs review" value={stats.review} accent="text-amber-400" onClick={() => selectStat("review")} active={onlyReview} />
+              <Stat label="On sale" value={stats.onSale} accent="text-green-400" onClick={() => selectStat("sale")} active={onlyOnSale} />
             </div>
 
             {/* Filters */}
@@ -442,7 +466,7 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
               <Select value={format} onChange={setFormat} label="Format" options={["All", ...PHYSICAL_FORMATS]} />
               <Select value={status} onChange={setStatus} label="Status" options={[["All", "All"], ["owned", "Owned"], ["wanted", "Wanted"], ["untracked", "Untracked"]]} />
               <Select value={released} onChange={setReleased} label="Availability" options={["All", "Released", "Upcoming"]} />
-              <Select value={sortBy} onChange={(v) => setSortBy(v as SortKey)} label="Sort" options={[["release", "Release date"], ["title", "Title"], ["score", "Score"]]} />
+              <Select value={sortBy} onChange={(v) => setSortBy(v as SortKey)} label="Sort" options={[["release", "Release date"], ["title", "Title"], ["score", "Score"], ["discount", "Discount %"]]} />
               <button
                 onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
                 className="rounded-md bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm hover:border-zinc-600"
