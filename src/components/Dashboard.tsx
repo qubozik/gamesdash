@@ -362,7 +362,10 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
       <header className="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur sticky top-0 z-10">
         <div className="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-blue-600 grid place-items-center text-red-600 font-black text-sm">
+            <div
+              className="h-9 w-9 rounded-lg bg-blue-600 grid place-items-center text-red-600 font-black text-sm"
+              style={{ WebkitTextStroke: "0.75px black" }}
+            >
               GD
             </div>
             <div>
