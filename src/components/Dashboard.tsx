@@ -362,11 +362,13 @@ export default function Dashboard({ initialGames }: { initialGames: Game[] }) {
       <header className="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur sticky top-0 z-10">
         <div className="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-red-600 grid place-items-center font-black">
-              N
+            <div className="h-9 w-9 rounded-lg bg-blue-600 grid place-items-center text-red-600 font-black text-sm">
+              GD
             </div>
             <div>
-              <h1 className="text-lg font-bold leading-tight">Games Dash</h1>
+              <h1 className="text-lg font-bold leading-tight">
+                Games <span className="italic">Dash</span>
+              </h1>
               <p className="text-xs text-zinc-400">
                 Own it, want it, plan your backlog.
               </p>
